@@ -68,6 +68,30 @@ class LabeledVideoPaths:
         return cls(video_paths_and_label)
 
     @classmethod
+    def from_df(cls, df: pd.DataFrame) -> LabeledVideoPaths:
+        """
+        Factory function that creates a LabeledVideoPaths object by reading a dataframe.
+        Sample dataframe
+        df=pd.DataFrame(
+            {
+                "path":["path_to_video_1","path_to_video_2","path_to_video_3"],
+                "label":["label_1","label_2","label_3"]
+            })
+
+        Args:
+            df (dataframe): The dataframe variable.
+        """
+        video_paths_and_label = []
+        for row in df.iterrows():
+            row = row[1].values
+            path = row[0]
+            label = row[1::].astype(float)
+            video_paths_and_label.append((path, label))
+
+        assert len(video_paths_and_label) > 0, f"Failed to load dataset from df."
+        return cls(video_paths_and_label)
+
+    @classmethod
     def from_directory(cls, dir_path: str) -> LabeledVideoPaths:
         """
         Factory function that creates a LabeledVideoPaths object by parsing the structure
