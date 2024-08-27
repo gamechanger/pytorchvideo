@@ -35,6 +35,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
         decode_audio: bool = True,
         decode_video: bool = True,
         decoder: str = "pyav",
+        weights = None,
     ) -> None:
         """
         Args:
@@ -67,6 +68,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
         self._clip_sampler = clip_sampler
         self._labeled_videos = labeled_video_paths
         self._decoder = decoder
+        self._weights= weights
 
         # If a RandomSampler is used we need to pass in a custom random generator that
         # ensures all PyTorch multiprocess workers have the same random seed.
@@ -76,6 +78,18 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
             self._video_sampler = video_sampler(
                 self._labeled_videos, generator=self._video_random_generator
             )
+        elif video_sampler == "WeightedRandomSampler":
+            video_sampler = torch.utils.data.WeightedRandomSampler
+            self._video_random_generator = torch.Generator()
+            if self._weights is None:
+                raise ValueError("Weights must be provided for WeightedRandomSampler")
+
+            self._video_sampler = video_sampler(
+                self._weights, num_samples=len(self._labeled_videos))
+        elif video_sampler == "Distributed":
+            # self._video_random_generator = torch.Generator()
+            video_sampler = torch.utils.data.DistributedSampler
+            self._video_sampler = video_sampler(self._labeled_videos,shuffle=True ,drop_last=False)
         else:
             self._video_sampler = video_sampler(self._labeled_videos)
 
@@ -259,6 +273,7 @@ def labeled_video_dataset(
     video_path_prefix: str = "",
     decode_audio: bool = True,
     decoder: str = "pyav",
+    weights= None,
 ) -> LabeledVideoDataset:
     """
     A helper function to create ``LabeledVideoDataset`` object for Ucf101 and Kinetics datasets.
@@ -302,5 +317,6 @@ def labeled_video_dataset(
         transform,
         decode_audio=decode_audio,
         decoder=decoder,
+        weights=weights,
     )
     return dataset
