@@ -523,7 +523,7 @@ def create_x3d_head(
         )
 
     if output_with_global_average:
-        output_pool = nn.AdaptiveAvgPool3d(1)
+        output_pool = nn.AvgPool3d(kernel_size=(4, 6, 6))
     else:
         output_pool = None
 

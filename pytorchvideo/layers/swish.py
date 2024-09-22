@@ -9,8 +9,10 @@ class Swish(nn.Module):
     Wrapper for the Swish activation function.
     """
 
+    # def forward(self, x):
+    #     return SwishFunction.apply(x)
     def forward(self, x):
-        return SwishFunction.apply(x)
+        return x * torch.sigmoid(x)
 
 
 class SwishFunction(torch.autograd.Function):
