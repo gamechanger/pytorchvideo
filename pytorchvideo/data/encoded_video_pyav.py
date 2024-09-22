@@ -12,6 +12,7 @@ from pytorchvideo.data.encoded_video import EncodedVideo
 
 from .utils import pts_to_secs, secs_to_pts, thwc_to_cthw
 
+import cv2
 
 logger = logging.getLogger(__name__)
 
@@ -253,7 +254,7 @@ class EncodedVideoPyAV(EncodedVideo):
         Selectively decodes a video between start_pts and end_pts in time units of the
         self._video's timebase.
         """
-        video_and_pts = None
+        video_and_pts = []
         audio_and_pts = None
         try:
             if self._decode_video:
@@ -275,11 +276,37 @@ class EncodedVideoPyAV(EncodedVideo):
                     {"video": 0},
                     perform_seek=self.perform_seek,
                 )
+                # if len(pyav_video_frames) > 0:
+                #     video_and_pts = [
+                #         (torch.from_numpy(frame.to_rgb().to_ndarray()), frame.pts)
+                #         for frame in pyav_video_frames
+                #     ]
                 if len(pyav_video_frames) > 0:
-                    video_and_pts = [
-                        (torch.from_numpy(frame.to_rgb().to_ndarray()), frame.pts)
-                        for frame in pyav_video_frames
-                    ]
+                    for frame in pyav_video_frames:
+
+                        y_plane = frame.planes[0]
+                        u_plane = frame.planes[1]
+                        v_plane = frame.planes[2]
+
+                        # Convert planes to NumPy arrays
+                        y_array = np.frombuffer(bytes(y_plane), dtype=np.uint8).reshape(
+                            (y_plane.height, y_plane.width)
+                        )
+                        u_array = np.frombuffer(bytes(u_plane), dtype=np.uint8).reshape(
+                            (u_plane.height, u_plane.width)
+                        )
+                        v_array = np.frombuffer(bytes(v_plane), dtype=np.uint8).reshape(
+                            (v_plane.height, v_plane.width)
+                        )
+
+                        u_array = u_array.repeat(2, axis=0).repeat(2, axis=1)
+                        v_array = v_array.repeat(2, axis=0).repeat(2, axis=1)
+
+                        yuv_image_pyav = np.dstack((y_array, u_array, v_array))
+
+                        frame_rgb = cv2.cvtColor(yuv_image_pyav, cv2.COLOR_YUV2RGB)
+
+                        video_and_pts.append((torch.from_numpy(frame_rgb), frame.pts))
 
             if self._has_audio:
                 pyav_audio_frames, _ = _pyav_decode_stream(

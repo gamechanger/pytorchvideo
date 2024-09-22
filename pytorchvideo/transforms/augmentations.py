@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import torch
 import torchvision
 from torch import Tensor
+import torchvision.transforms.functional as F_t
 from torchvision.transforms.functional import InterpolationMode
 
 

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import gc
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
-
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type,Union
+import pandas as pd
 import torch.utils.data
 from pytorchvideo.data.clip_sampling import ClipSampler
 from pytorchvideo.data.video import VideoPathHandler
@@ -35,6 +35,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
         decode_audio: bool = True,
         decode_video: bool = True,
         decoder: str = "pyav",
+        weights = None,
     ) -> None:
         """
         Args:
@@ -67,6 +68,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
         self._clip_sampler = clip_sampler
         self._labeled_videos = labeled_video_paths
         self._decoder = decoder
+        self._weights= weights
 
         # If a RandomSampler is used we need to pass in a custom random generator that
         # ensures all PyTorch multiprocess workers have the same random seed.
@@ -76,6 +78,18 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
             self._video_sampler = video_sampler(
                 self._labeled_videos, generator=self._video_random_generator
             )
+        elif video_sampler == "WeightedRandomSampler":
+            video_sampler = torch.utils.data.WeightedRandomSampler
+            self._video_random_generator = torch.Generator()
+            if self._weights is None:
+                raise ValueError("Weights must be provided for WeightedRandomSampler")
+
+            self._video_sampler = video_sampler(
+                self._weights, num_samples=len(self._labeled_videos))
+        elif video_sampler == "Distributed":
+            # self._video_random_generator = torch.Generator()
+            video_sampler = torch.utils.data.DistributedSampler
+            self._video_sampler = video_sampler(self._labeled_videos,shuffle=True ,drop_last=False)
         else:
             self._video_sampler = video_sampler(self._labeled_videos)
 
@@ -145,6 +159,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
                     )
                     self._loaded_video_label = (video, info_dict, video_index)
                 except Exception as e:
+                    print('error is',e)#necessary to print error
                     logger.debug(
                         "Failed to load video with error: {}; trial {}".format(
                             e,
@@ -252,13 +267,14 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
 
 
 def labeled_video_dataset(
-    data_path: str,
+    data:Union[str, pd.DataFrame],
     clip_sampler: ClipSampler,
     video_sampler: Type[torch.utils.data.Sampler] = torch.utils.data.RandomSampler,
     transform: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     video_path_prefix: str = "",
     decode_audio: bool = True,
     decoder: str = "pyav",
+    weights= None,
 ) -> LabeledVideoDataset:
     """
     A helper function to create ``LabeledVideoDataset`` object for Ucf101 and Kinetics datasets.
@@ -293,8 +309,12 @@ def labeled_video_dataset(
         decoder (str): Defines what type of decoder used to decode a video.
 
     """
-    labeled_video_paths = LabeledVideoPaths.from_path(data_path)
-    labeled_video_paths.path_prefix = video_path_prefix
+    if isinstance(data,pd.DataFrame):
+        labeled_video_paths= LabeledVideoPaths.from_df(data)
+    elif isinstance(data,str):
+        labeled_video_paths = LabeledVideoPaths.from_path(data)
+        labeled_video_paths.path_prefix = video_path_prefix
+    
     dataset = LabeledVideoDataset(
         labeled_video_paths,
         clip_sampler,
@@ -302,5 +322,6 @@ def labeled_video_dataset(
         transform,
         decode_audio=decode_audio,
         decoder=decoder,
+        weights=weights,
     )
     return dataset
