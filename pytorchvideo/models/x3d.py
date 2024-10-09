@@ -426,7 +426,7 @@ def create_x3d_head(
     # Dropout configs.
     dropout_rate: float = 0.5,
     # Activation configs.
-    activation: Callable = nn.Softmax,
+    activation: Callable = nn.ReLU,
     # Output configs.
     output_with_global_average: bool = True,
 ) -> nn.Module:
@@ -515,7 +515,7 @@ def create_x3d_head(
         activation_module = None
     elif activation == nn.Softmax:
         activation_module = activation(dim=1)
-    elif activation == nn.Sigmoid:
+    elif activation == nn.Sigmoid or nn.ReLU:
         activation_module = activation()
     else:
         raise NotImplementedError(
@@ -574,7 +574,7 @@ def create_x3d(
     head_dim_out: int = 2048,
     head_pool_act: Callable = nn.ReLU,
     head_bn_lin5_on: bool = False,
-    head_activation: Callable = None,
+    head_activation: Callable = nn.ReLU,
     head_output_with_global_average: bool = True,
 ) -> nn.Module:
     """
