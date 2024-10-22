@@ -532,7 +532,7 @@ def create_x3d_head(
         if sport == X3DSport.BASKETBALL:
             output_pool = nn.AvgPool3d(kernel_size=(4, 6, 6))
         elif sport == X3DSport.VOLLEYBALL:
-            output_pool = nn.AvgPool3d(kernel_size=(7, 7, 7))
+            output_pool = nn.AvgPool3d(kernel_size=(7, 12, 12))
     else:
         output_pool = None
 
