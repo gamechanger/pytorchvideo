@@ -14,11 +14,6 @@ from pytorchvideo.models.head import ResNetBasicHead
 from pytorchvideo.models.net import Net
 from pytorchvideo.models.resnet import BottleneckBlock, ResBlock, ResStage
 from pytorchvideo.models.stem import ResNetBasicStem
-from enum import Enum
-
-class X3DSport(Enum):
-    BASKETBALL = 0
-    VOLLEYBALL = 1
 
 
 def create_x3d_stem(
@@ -434,7 +429,8 @@ def create_x3d_head(
     activation: Callable = nn.ReLU,
     # Output configs.
     output_with_global_average: bool = True,
-    sport: X3DSport,
+    # output_pool configs. Basketball: (4, 6, 6), Volleyball: (7, 12, 12)
+    output_pool_kernel_size: Tuple[int] = (4, 6, 6),
 ) -> nn.Module:
     """
     Creates X3D head. This layer performs an projected pooling operation followed
@@ -529,10 +525,7 @@ def create_x3d_head(
         )
 
     if output_with_global_average:
-        if sport == X3DSport.BASKETBALL:
-            output_pool = nn.AvgPool3d(kernel_size=(4, 6, 6))
-        elif sport == X3DSport.VOLLEYBALL:
-            output_pool = nn.AvgPool3d(kernel_size=(7, 12, 12))
+        output_pool = nn.AvgPool3d(kernel_size=output_pool_kernel_size)
     else:
         output_pool = None
 
@@ -585,7 +578,8 @@ def create_x3d(
     head_bn_lin5_on: bool = False,
     head_activation: Callable = nn.ReLU,
     head_output_with_global_average: bool = True,
-    sport: X3DSport = X3DSport.BASKETBALL,
+    # output_pool configs. Basketball: (4, 6, 6), Volleyball: (7, 12, 12)
+    output_pool_kernel_size: Tuple[int] = (4, 6, 6),
 ) -> nn.Module:
     """
     X3D model builder. It builds a X3D network backbone, which is a ResNet.
@@ -744,7 +738,7 @@ def create_x3d(
         dropout_rate=dropout_rate,
         activation=head_activation,
         output_with_global_average=head_output_with_global_average,
-        sport=sport,
+        output_pool_kernel_size=output_pool_kernel_size,
     )
     blocks.append(head)
     return Net(blocks=nn.ModuleList(blocks))
