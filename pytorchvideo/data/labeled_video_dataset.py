@@ -9,7 +9,7 @@ import pandas as pd
 import torch.utils.data
 from pytorchvideo.data.clip_sampling import ClipSampler
 from pytorchvideo.data.video import VideoPathHandler
-
+import warnings
 from .labeled_video_paths import LabeledVideoPaths
 from .utils import MultiProcessSampler
 
@@ -88,7 +88,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
             self._subsample = subsample
         else:
             self._subsample = 16
-            raise Warning(
+            warnings.warn(
                 "Subsample must be provided. Internal subsampling provides 6x speedup. Running with default subsample=16"
             )
 
