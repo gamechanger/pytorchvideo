@@ -9,7 +9,7 @@ import av
 import numpy as np
 import torch
 from pytorchvideo.data.encoded_video import EncodedVideo
-
+from collections import Counter
 from .utils import pts_to_secs, secs_to_pts, thwc_to_cthw
 
 import cv2
@@ -30,6 +30,8 @@ class EncodedVideoPyAV(EncodedVideo):
         video_name: Optional[str] = None,
         decode_video: bool = True,
         decode_audio: bool = True,
+        colorspace: str = "RGB",
+        deployment: str = "server",
         perform_seek: bool = True,
     ) -> None:
         """
@@ -45,6 +47,8 @@ class EncodedVideoPyAV(EncodedVideo):
         self._video_name = video_name
         self._decode_video = decode_video
         self._decode_audio = decode_audio
+        self._colorspace = colorspace
+        self._deployment = deployment
 
         try:
             self._container = av.open(file)
@@ -81,7 +85,9 @@ class EncodedVideoPyAV(EncodedVideo):
         self._video, self._audio, self._selective_decoding = (None, None, True)
         if audio_duration is None and video_duration is None:
             self._selective_decoding = False
-            self._video, self._audio = self._pyav_decode_video()
+            self._video, self._audio = self._pyav_decode_video(
+                colorspace=self._colorspace, deployment=self._deployment
+            )
             if self._video is None:
                 raise RuntimeError("Unable to decode video stream")
 
@@ -248,7 +254,12 @@ class EncodedVideoPyAV(EncodedVideo):
             self._container.close()
 
     def _pyav_decode_video(
-        self, start_secs: float = 0.0, end_secs: float = math.inf
+        self,
+        start_secs: float = 0.0,
+        end_secs: float = math.inf,
+        colorspace: str = "RGB",
+        deployment: str = "server",
+        subsample: int = 16,
     ) -> float:
         """
         Selectively decodes a video between start_pts and end_pts in time units of the
@@ -276,37 +287,61 @@ class EncodedVideoPyAV(EncodedVideo):
                     {"video": 0},
                     perform_seek=self.perform_seek,
                 )
-                # if len(pyav_video_frames) > 0:
-                #     video_and_pts = [
-                #         (torch.from_numpy(frame.to_rgb().to_ndarray()), frame.pts)
-                #         for frame in pyav_video_frames
-                #     ]
+                frame_number_ctr = 0
+                req_frames = np.linspace(
+                    0, len(pyav_video_frames) - 1, subsample, dtype=int
+                )
+                req_frames = Counter(
+                    req_frames
+                )  # This will only be ordered on python 3.7+
+
                 if len(pyav_video_frames) > 0:
+                    # video_and_pts = [
+                    #     (torch.from_numpy(frame.to_rgb().to_ndarray()), frame.pts)
+                    #     for frame in pyav_video_frames
+                    # ]
+
                     for frame in pyav_video_frames:
+                        if frame_number_ctr in req_frames:
+                            if deployment == "ios":
+                                y_plane = frame.planes[0]
+                                u_plane = frame.planes[1]
+                                v_plane = frame.planes[2]
 
-                        y_plane = frame.planes[0]
-                        u_plane = frame.planes[1]
-                        v_plane = frame.planes[2]
+                                # Convert planes to NumPy arrays
+                                y_array = np.frombuffer(
+                                    bytes(y_plane), dtype=np.uint8
+                                ).reshape((y_plane.height, y_plane.width))
+                                u_array = np.frombuffer(
+                                    bytes(u_plane), dtype=np.uint8
+                                ).reshape((u_plane.height, u_plane.width))
+                                v_array = np.frombuffer(
+                                    bytes(v_plane), dtype=np.uint8
+                                ).reshape((v_plane.height, v_plane.width))
 
-                        # Convert planes to NumPy arrays
-                        y_array = np.frombuffer(bytes(y_plane), dtype=np.uint8).reshape(
-                            (y_plane.height, y_plane.width)
-                        )
-                        u_array = np.frombuffer(bytes(u_plane), dtype=np.uint8).reshape(
-                            (u_plane.height, u_plane.width)
-                        )
-                        v_array = np.frombuffer(bytes(v_plane), dtype=np.uint8).reshape(
-                            (v_plane.height, v_plane.width)
-                        )
+                                u_array = u_array.repeat(2, axis=0).repeat(2, axis=1)
+                                v_array = v_array.repeat(2, axis=0).repeat(2, axis=1)
 
-                        u_array = u_array.repeat(2, axis=0).repeat(2, axis=1)
-                        v_array = v_array.repeat(2, axis=0).repeat(2, axis=1)
+                                yuv_image_pyav = np.dstack((y_array, u_array, v_array))
 
-                        yuv_image_pyav = np.dstack((y_array, u_array, v_array))
-
-                        frame_rgb = cv2.cvtColor(yuv_image_pyav, cv2.COLOR_YUV2RGB)
-
-                        video_and_pts.append((torch.from_numpy(frame_rgb), frame.pts))
+                                if colorspace == "RGB":
+                                    frame_processed = cv2.cvtColor(
+                                        yuv_image_pyav, cv2.COLOR_YUV2RGB
+                                    )
+                                else:
+                                    frame_processed = yuv_image_pyav
+                            elif deployment == "server":
+                                if colorspace == "RGB":
+                                    frame_processed = frame.to_rgb().to_ndarray()
+                                else:
+                                    frame_processed = frame.to_ndarray()
+                            frame_amt = req_frames[frame_number_ctr]
+                            while frame_amt != 0:
+                                video_and_pts.append(
+                                    (torch.from_numpy(frame_processed), frame.pts)
+                                )
+                                frame_amt -= 1
+                        frame_number_ctr += 1
 
             if self._has_audio:
                 pyav_audio_frames, _ = _pyav_decode_stream(
