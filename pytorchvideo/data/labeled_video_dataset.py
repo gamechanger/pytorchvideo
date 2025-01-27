@@ -38,7 +38,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
         weights=None,
         colorspace: str = "RGB",
         deployment: str = "ios",
-        subsample: int = 16,
+        subsample: int = 0,
     ) -> None:
         """
         Args:
@@ -84,7 +84,14 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
             self._deployment = deployment
         else:
             raise ValueError("Deployment must be 'ios' or 'server'")
-        self._sumsample = subsample
+        if subsample:
+            self._subsample = subsample
+        else:
+            self._subsample = 16
+            raise Warning(
+                "Subsample must be provided. Internal subsampling provides 6x speedup. Running with default subsample=16"
+            )
+
         # If a RandomSampler is used we need to pass in a custom random generator that
         # ensures all PyTorch multiprocess workers have the same random seed.
         self._video_random_generator = None
@@ -176,7 +183,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
                         decoder=self._decoder,
                         colorspace=self._colorspace,
                         deployment=self._deployment,
-                        subsample=self._sumsample,
+                        subsample=self._subsample,
                     )
                     self._loaded_video_label = (video, info_dict, video_index)
                 except Exception as e:
