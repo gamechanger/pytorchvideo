@@ -32,6 +32,7 @@ class EncodedVideoPyAV(EncodedVideo):
         decode_audio: bool = True,
         colorspace: str = "RGB",
         deployment: str = "server",
+        subsample: int = 16,
         perform_seek: bool = True,
     ) -> None:
         """
@@ -49,6 +50,7 @@ class EncodedVideoPyAV(EncodedVideo):
         self._decode_audio = decode_audio
         self._colorspace = colorspace
         self._deployment = deployment
+        self._subsample = subsample
 
         try:
             self._container = av.open(file)
@@ -86,7 +88,9 @@ class EncodedVideoPyAV(EncodedVideo):
         if audio_duration is None and video_duration is None:
             self._selective_decoding = False
             self._video, self._audio = self._pyav_decode_video(
-                colorspace=self._colorspace, deployment=self._deployment
+                colorspace=self._colorspace,
+                deployment=self._deployment,
+                subsample=self._subsample,
             )
             if self._video is None:
                 raise RuntimeError("Unable to decode video stream")
@@ -185,7 +189,13 @@ class EncodedVideoPyAV(EncodedVideo):
 
         """
         if self._selective_decoding:
-            self._video, self._audio = self._pyav_decode_video(start_sec, end_sec)
+            self._video, self._audio = self._pyav_decode_video(
+                start_sec,
+                end_sec,
+                colorspace=self._colorspace,
+                deployment=self._deployment,
+                subsample=self._subsample,
+            )
 
         video_frames = None
         if self._video is not None:
