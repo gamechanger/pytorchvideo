@@ -64,6 +64,10 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
 
             decoder (str): Defines what type of decoder used to decode a video. Not used for
                 frame videos.
+
+            colorspace (str): Defines the colorspace of the video. Must be 'RGB' or 'YUV'.
+            deployment (str): Defines the deployment environment. Must be 'ios' or 'server'.
+            subsample (int): Subsample the video by taking every subsample-th frame.
         """
         self._decode_audio = decode_audio
         self._decode_video = decode_video
