@@ -37,7 +37,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
         decoder: str = "pyav",
         weights=None,
         colorspace: str = "RGB",
-        deployment: str = "ios",
+        deployment: str = "server",
         subsample: int = 0,
     ) -> None:
         """
@@ -302,8 +302,8 @@ def labeled_video_dataset(
     decoder: str = "pyav",
     weights=None,
     colorspace: str = "RGB",
-    deployment: str = "ios",
-    subsample: int = 16,
+    deployment: str = "server",
+    subsample: int = 0,
 ) -> LabeledVideoDataset:
     """
     A helper function to create ``LabeledVideoDataset`` object for Ucf101 and Kinetics datasets.
