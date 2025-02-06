@@ -272,8 +272,12 @@ class EncodedVideoPyAV(EncodedVideo):
         subsample: int = 16,
     ) -> float:
         """
-        Selectively decodes a video between start_pts and end_pts in time units of the
-        self._video's timebase.
+        Args:
+            start_secs (float): the clip start time in seconds
+            end_secs (float): the clip end time in seconds
+            colorspace (str): colorspace of the video. Either "RGB" or "YUV".
+            deployment (str): deployment type. Either "server" or "ios".
+            subsample (int): number of frames to subsample.
         """
         video_and_pts = []
         audio_and_pts = None
