@@ -67,7 +67,7 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
 
             colorspace (str): Defines the colorspace of the video. Must be 'RGB' or 'YUV'.
             deployment (str): Defines the deployment environment. Must be 'ios' or 'server'.
-            subsample (int): Subsample the video by taking every subsample-th frame.
+            subsample (int): Subsample the video to give requested subsample frames.
         """
         self._decode_audio = decode_audio
         self._decode_video = decode_video
