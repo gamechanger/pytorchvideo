@@ -19,13 +19,20 @@ class VideoPathHandler:
         self.path_order_cache = {}
 
     def video_from_path(
-        self, filepath, decode_video=True, decode_audio=False, decoder="pyav", fps=30
+        self,
+        filepath,
+        decode_video=True,
+        decode_audio=False,
+        decoder="pyav",
+        colorspace="RGB",
+        deployment="server",
+        subsample=16,
+        fps=30,
     ):
         try:
             is_file = g_pathmgr.isfile(filepath)
             is_dir = g_pathmgr.isdir(filepath)
         except NotImplementedError:
-
             # Not all PathManager handlers support is{file,dir} functions, when this is the
             # case, we default to assuming the path is a file.
             is_file = True
@@ -39,6 +46,9 @@ class VideoPathHandler:
                 decode_video=decode_video,
                 decode_audio=decode_audio,
                 decoder=decoder,
+                colorspace=colorspace,
+                deployment=deployment,
+                subsample=subsample,
             )
         elif is_dir:
             from pytorchvideo.data.frame_video import FrameVideo

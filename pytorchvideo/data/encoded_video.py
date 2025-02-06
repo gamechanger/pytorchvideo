@@ -52,6 +52,9 @@ class EncodedVideo(Video):
         decode_video: bool = True,
         decode_audio: bool = True,
         decoder: str = "pyav",
+        colorspace: str = "RGB",
+        deployment: str = "server",
+        subsample: int = 16,
         **other_args: Dict[str, Any],
     ):
         """
@@ -71,5 +74,8 @@ class EncodedVideo(Video):
             video_name=pathlib.Path(file_path).name,
             decode_video=decode_video,
             decode_audio=decode_audio,
+            colorspace=colorspace,
+            deployment=deployment,
+            subsample=subsample,
             **other_args,
         )

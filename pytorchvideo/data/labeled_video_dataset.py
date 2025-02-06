@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import gc
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type,Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 import pandas as pd
 import torch.utils.data
 from pytorchvideo.data.clip_sampling import ClipSampler
 from pytorchvideo.data.video import VideoPathHandler
-
+import warnings
 from .labeled_video_paths import LabeledVideoPaths
 from .utils import MultiProcessSampler
 
@@ -35,7 +35,10 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
         decode_audio: bool = True,
         decode_video: bool = True,
         decoder: str = "pyav",
-        weights = None,
+        weights=None,
+        colorspace: str = "RGB",
+        deployment: str = "server",
+        subsample: int = 0,
     ) -> None:
         """
         Args:
@@ -61,6 +64,10 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
 
             decoder (str): Defines what type of decoder used to decode a video. Not used for
                 frame videos.
+
+            colorspace (str): Defines the colorspace of the video. Must be 'RGB' or 'YUV'.
+            deployment (str): Defines the deployment environment. Must be 'ios' or 'server'.
+            subsample (int): Subsample the video by taking every subsample-th frame.
         """
         self._decode_audio = decode_audio
         self._decode_video = decode_video
@@ -68,7 +75,22 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
         self._clip_sampler = clip_sampler
         self._labeled_videos = labeled_video_paths
         self._decoder = decoder
-        self._weights= weights
+        self._weights = weights
+        if colorspace in ["RGB", "YUV"]:
+            self._colorspace = colorspace
+        else:
+            raise ValueError("Colorspace must be 'RGB' or 'YUV'")
+        if deployment in ["ios", "server"]:
+            self._deployment = deployment
+        else:
+            raise ValueError("Deployment must be 'ios' or 'server'")
+        if subsample:
+            self._subsample = subsample
+        else:
+            self._subsample = 16
+            warnings.warn(
+                "Subsample must be provided. Internal subsampling provides 6x speedup. Running with default subsample=16"
+            )
 
         # If a RandomSampler is used we need to pass in a custom random generator that
         # ensures all PyTorch multiprocess workers have the same random seed.
@@ -85,11 +107,14 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
                 raise ValueError("Weights must be provided for WeightedRandomSampler")
 
             self._video_sampler = video_sampler(
-                self._weights, num_samples=len(self._labeled_videos))
+                self._weights, num_samples=len(self._labeled_videos)
+            )
         elif video_sampler == "Distributed":
             # self._video_random_generator = torch.Generator()
             video_sampler = torch.utils.data.DistributedSampler
-            self._video_sampler = video_sampler(self._labeled_videos,shuffle=True ,drop_last=False)
+            self._video_sampler = video_sampler(
+                self._labeled_videos, shuffle=True, drop_last=False
+            )
         else:
             self._video_sampler = video_sampler(self._labeled_videos)
 
@@ -156,10 +181,13 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
                         decode_audio=self._decode_audio,
                         decode_video=self._decode_video,
                         decoder=self._decoder,
+                        colorspace=self._colorspace,
+                        deployment=self._deployment,
+                        subsample=self._subsample,
                     )
                     self._loaded_video_label = (video, info_dict, video_index)
                 except Exception as e:
-                    print('error is',e)#necessary to print error
+                    print("error is", e)  # necessary to print error
                     logger.debug(
                         "Failed to load video with error: {}; trial {}".format(
                             e,
@@ -178,7 +206,6 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
             ) = self._clip_sampler(self._last_clip_end_time, video.duration, info_dict)
 
             if isinstance(clip_start, list):  # multi-clip in each sample
-
                 # Only load the clips once and reuse previously stored clips if there are multiple
                 # views for augmentations to perform on the same clips.
                 if aug_index[0] == 0:
@@ -196,7 +223,6 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
                             self._loaded_clip[key] = [x[key] for x in loaded_clip_list]
 
             else:  # single clip case
-
                 # Only load the clip once and reuse previously stored clip if there are multiple
                 # views for augmentations to perform on the same clip.
                 if aug_index == 0:
@@ -267,14 +293,17 @@ class LabeledVideoDataset(torch.utils.data.IterableDataset):
 
 
 def labeled_video_dataset(
-    data:Union[str, pd.DataFrame],
+    data: Union[str, pd.DataFrame],
     clip_sampler: ClipSampler,
     video_sampler: Type[torch.utils.data.Sampler] = torch.utils.data.RandomSampler,
     transform: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     video_path_prefix: str = "",
     decode_audio: bool = True,
     decoder: str = "pyav",
-    weights= None,
+    weights=None,
+    colorspace: str = "RGB",
+    deployment: str = "server",
+    subsample: int = 0,
 ) -> LabeledVideoDataset:
     """
     A helper function to create ``LabeledVideoDataset`` object for Ucf101 and Kinetics datasets.
@@ -309,12 +338,12 @@ def labeled_video_dataset(
         decoder (str): Defines what type of decoder used to decode a video.
 
     """
-    if isinstance(data,pd.DataFrame):
-        labeled_video_paths= LabeledVideoPaths.from_df(data)
-    elif isinstance(data,str):
+    if isinstance(data, pd.DataFrame):
+        labeled_video_paths = LabeledVideoPaths.from_df(data)
+    elif isinstance(data, str):
         labeled_video_paths = LabeledVideoPaths.from_path(data)
         labeled_video_paths.path_prefix = video_path_prefix
-    
+
     dataset = LabeledVideoDataset(
         labeled_video_paths,
         clip_sampler,
@@ -323,5 +352,8 @@ def labeled_video_dataset(
         decode_audio=decode_audio,
         decoder=decoder,
         weights=weights,
+        colorspace=colorspace,
+        deployment=deployment,
+        subsample=subsample,
     )
     return dataset
