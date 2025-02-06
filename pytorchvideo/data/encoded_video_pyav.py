@@ -338,12 +338,12 @@ class EncodedVideoPyAV(EncodedVideo):
                                     frame_processed = cv2.cvtColor(
                                         yuv_image_pyav, cv2.COLOR_YUV2RGB
                                     )
-                                else:
+                                elif colorspace == "YUV":
                                     frame_processed = yuv_image_pyav
                             elif deployment == "server":
                                 if colorspace == "RGB":
                                     frame_processed = frame.to_rgb().to_ndarray()
-                                else:
+                                elif colorspace == "YUV":
                                     frame_processed = frame.to_ndarray()
                             frame_amt = req_frames[frame_number_ctr]
                             while frame_amt != 0:
