@@ -430,7 +430,7 @@ def create_x3d_head(
     # Output configs.
     output_with_global_average: bool = True,
     # output_pool configs. Basketball: (4, 6, 6), Volleyball: (7, 12, 12)
-    output_pool_kernel_size: Tuple[int] = (4, 6, 6),
+    output_pool_kernel_size: Tuple[int] = None,
 ) -> nn.Module:
     """
     Creates X3D head. This layer performs an projected pooling operation followed
@@ -475,6 +475,7 @@ def create_x3d_head(
 
         output_with_global_average (bool): if True, perform global averaging on temporal
             and spatial dimensions and reshape output to batch_size x out_features.
+        output_pool_kernel_size (tuple): pooling kernel size(s) when not using adaptive. If None, uses adaptive pooling(Recommended for server side).
 
     Returns:
         (nn.Module): X3D head layer.
@@ -525,7 +526,10 @@ def create_x3d_head(
         )
 
     if output_with_global_average:
-        output_pool = nn.AvgPool3d(kernel_size=output_pool_kernel_size)
+        if not output_pool_kernel_size:
+            output_pool = nn.AdaptiveAvgPool3d(1)
+        else:
+            output_pool = nn.AvgPool3d(kernel_size=output_pool_kernel_size)
     else:
         output_pool = None
 
@@ -579,7 +583,7 @@ def create_x3d(
     head_activation: Callable = nn.ReLU,
     head_output_with_global_average: bool = True,
     # output_pool configs. Basketball: (4, 6, 6), Volleyball: (7, 12, 12)
-    output_pool_kernel_size: Tuple[int] = (4, 6, 6),
+    output_pool_kernel_size: Tuple[int] = None,
 ) -> nn.Module:
     """
     X3D model builder. It builds a X3D network backbone, which is a ResNet.
@@ -644,6 +648,7 @@ def create_x3d(
         head_activation (callable): a callable that constructs activation layer.
         head_output_with_global_average (bool): if True, perform global averaging on
             the head output.
+        output_pool_kernel_size (tuple): pooling kernel size(s) when not using adaptive. If None, uses adaptive pooling(Recommended for server side).
 
     Returns:
         (nn.Module): the X3D network.
