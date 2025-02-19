@@ -475,6 +475,7 @@ def create_x3d_head(
 
         output_with_global_average (bool): if True, perform global averaging on temporal
             and spatial dimensions and reshape output to batch_size x out_features.
+        output_pool_kernel_size (tuple): pooling kernel size(s) when not using adaptive. If None, uses adaptive pooling(Recommended for server side).
 
     Returns:
         (nn.Module): X3D head layer.
