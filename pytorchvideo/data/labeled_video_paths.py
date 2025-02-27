@@ -87,7 +87,10 @@ class LabeledVideoPaths:
         for row in df.iterrows():
             row = row[1].values
             path = row[0]
-            label = row[1::].astype(float)
+            label = row[1::]
+            # check labels are numeric before converting to float
+            if all(isinstance(item, (int, float)) for item in label):
+                label = label.astype(float)
             video_paths_and_label.append((path, label))
 
         assert len(video_paths_and_label) > 0, f"Failed to load dataset from df."
